@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visor de Moléculas y Grafos Químicos Dinámico</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            900: '#14532d',
+                        },
+                        darkbg: '#0b0f17',
+                        darkcard: '#111827',
+                        darkborder: '#1f2937'
+                    },
+                    fontFamily: {
+                        mono: ['"Fira Code"', 'monospace'],
+                        sans: ['Inter', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0b0f17;
+            color: #f3f4f6;
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+        }
+        
+        .bg-grid-pattern {
+            background-size: 30px 30px;
+            background-image: 
+                linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+        }
+
+        .atom-node {
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+            cursor: grab;
+            user-select: none;
+            touch-action: none;
+            will-change: transform, left, top;
+        }
+
+        .atom-node:active {
+            cursor: grabbing;
+            z-index: 50;
+        }
+
+        .glass-panel {
+            background: rgba(17, 24, 39, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0b0f17;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1f2937;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #374151;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-grid-pattern flex flex-col justify-between antialiased selection:bg-emerald-500/30 selection:text-emerald-200">
+
+    <header class="border-b border-gray-800 glass-panel sticky top-0 z-40 px-4 py-3">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="p-2 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400">
+                    <svg class="w-6 h-6 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-white tracking-wide flex items-center gap-2">
+                        Visor de Moléculas y Grafos
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono font-normal border border-emerald-500/30">Física + Canvas 60FPS</span>
+                    </h1>
+                    <p class="text-xs text-gray-400">Modelado de enlaces químicos con dinámicas de movimiento cuántico y atómico</p>
+                </div>
+            </div>
+
+            <!-- View Controls -->
+            <div class="flex items-center space-x-2 bg-gray-900/80 p-1 rounded-lg border border-gray-800">
+                <button id="btn-view-chem" onclick="setViewMode('chemical')" class="px-3 py-1.5 rounded-md text-xs font-medium transition-all bg-emerald-600 text-white shadow-sm flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                    Vista Química
+                </button>
+                <button id="btn-view-graph" onclick="setViewMode('graph')" class="px-3 py-1.5 rounded-md text-xs font-medium transition-all text-gray-400 hover:text-white flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    Teoría de Grafos
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto w-full px-4 py-6 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <aside class="lg:col-span-3 flex flex-col space-y-4">
+            <div class="glass-panel p-4 rounded-2xl flex flex-col h-full">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-sm font-semibold text-gray-200 uppercase tracking-wider flex items-center gap-2">
+                        <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+                        Compuestos Básicos
+                    </h2>
+                    <span id="compound-count" class="text-xs bg-gray-800 text-gray-400 px-2 py-0.5 rounded-full font-mono">0</span>
+                </div>
+
+                <div id="compound-list" class="space-y-2 overflow-y-auto max-h-[calc(100vh-280px)] pr-1">
+                    <!-- Dynamic compound buttons inserted by JS -->
+                </div>
+
+                <div class="mt-4 pt-3 border-t border-gray-800 text-xs text-gray-500">
+                    <p class="flex items-center gap-1">
+                        <svg class="w-3.5 h-3.5 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        Arrastra los átomos para sentir la fuerza física elástica de los enlaces.
+                    </p>
+                </div>
+            </div>
+        </aside>
+
+        <section class="lg:col-span-6 flex flex-col space-y-4">
+            <div class="glass-panel p-4 rounded-2xl relative flex-1 min-h-[460px] flex flex-col justify-between overflow-hidden">
+                <!-- Canvas Title & Info Header -->
+                <div class="flex items-center justify-between z-10 bg-gray-900/70 backdrop-blur-md p-3 rounded-xl border border-gray-800">
+                    <div>
+                        <h3 id="current-title" class="text-lg font-bold text-white flex items-center gap-2">
+                            <!-- Dynamic molecule title -->
+                        </h3>
+                        <p id="current-type" class="text-xs text-emerald-400 font-mono"></p>
+                    </div>
+                    <div class="text-right">
+                        <span id="current-formula" class="text-2xl font-black text-white tracking-widest font-mono drop-shadow-md"></span>
+                    </div>
+                </div>
+
+                <!-- Interactive Molecule Renderer Container -->
+                <div id="canvas-container" class="relative w-full h-[320px] my-auto flex items-center justify-center overflow-hidden rounded-xl bg-gray-950/40">
+                    
+                    <!-- HTML5 Canvas layer for Electron Particles and Quantum Clouds -->
+                    <canvas id="motion-canvas" class="absolute inset-0 w-full h-full z-0 pointer-events-none"></canvas>
+
+                    <!-- SVG layer for lines (edges) -->
+                    <svg id="svg-bonds" class="absolute inset-0 w-full h-full pointer-events-none z-10 overflow-visible">
+                        <!-- Dynamic SVG bonds rendered here -->
+                    </svg>
+
+                    <!-- HTML Layer for Atom Nodes -->
+                    <div id="html-atoms" class="absolute inset-0 w-full h-full z-20 pointer-events-auto">
+                        <!-- Dynamic HTML Atom circles rendered here -->
+                    </div>
+                </div>
+
+                <div class="z-10 bg-gray-900/80 backdrop-blur-md p-3 rounded-xl border border-gray-800 space-y-2">
+                    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-800 pb-2">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-semibold text-gray-300 flex items-center gap-1">
+                                <svg class="w-4 h-4 text-emerald-400 animate-spin" style="animation-duration: 4s;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                Modo de Dinámica:
+                            </span>
+                            <select id="motion-mode-select" onchange="setMotionMode(this.value)" class="bg-gray-800 text-white text-xs rounded-md px-2 py-1 border border-gray-700 focus:outline-none focus:border-emerald-500">
+                                <option value="electrons">Flujo de Electrones (Enlaces)</option>
+                                <option value="quantum">Órbitas Cuánticas 3D</option>
+                                <option value="vibration">Vibración Térmica</option>
+                                <option value="all">Todo Integrado</option>
+                            </select>
+                        </div>
+
+                        <div class="flex items-center gap-2">
+                            <button id="btn-toggle-anim" onclick="toggleAnimation()" class="px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 transition-all">
+                                Pausar Movimiento
+                            </button>
+                            <button onclick="resetAtomPositions()" class="text-gray-400 hover:text-white text-xs underline flex items-center gap-1">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                                Restablecer
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 text-xs pt-1">
+                        <div class="flex items-center gap-2">
+                            <span class="text-gray-400 shrink-0">Velocidad:</span>
+                            <input id="speed-slider" type="range" min="0.2" max="3" step="0.1" value="1" oninput="updateSpeed(this.value)" class="w-full accent-emerald-500 bg-gray-800 h-1.5 rounded-lg cursor-pointer">
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-gray-400 shrink-0">Vibración:</span>
+                            <input id="vib-slider" type="range" min="0" max="15" step="1" value="3" oninput="updateVibration(this.value)" class="w-full accent-emerald-500 bg-gray-800 h-1.5 rounded-lg cursor-pointer">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <aside class="lg:col-span-3 flex flex-col space-y-4">
+            <!-- Molecule Info Card -->
+            <div class="glass-panel p-4 rounded-2xl space-y-3">
+                <h2 class="text-sm font-semibold text-gray-200 uppercase tracking-wider flex items-center gap-2 border-b border-gray-800 pb-2">
+                    <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    Propiedades Químicas
+                </h2>
+                <div class="text-xs space-y-2 text-gray-300">
+                    <p id="current-description" class="leading-relaxed text-gray-400 whitespace-pre-line"></p>
+                    <div class="grid grid-cols-2 gap-2 pt-2 border-t border-gray-800/80 font-mono">
+                        <div class="bg-gray-900/80 p-2 rounded-lg">
+                            <span class="text-gray-500 block text-[10px]">MASA MOLAR</span>
+                            <span id="current-mass" class="text-white font-semibold">-</span>
+                        </div>
+                        <div class="bg-gray-900/80 p-2 rounded-lg">
+                            <span class="text-gray-500 block text-[10px]">GEOMETRÍA</span>
+                            <span id="current-geometry" class="text-emerald-400 font-semibold">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-panel p-4 rounded-2xl space-y-3 flex-1 flex flex-col justify-between">
+                <div>
+                    <h2 class="text-sm font-semibold text-gray-200 uppercase tracking-wider flex items-center gap-2 border-b border-gray-800 pb-2">
+                        <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/></svg>
+                        Matriz de Adyacencia ($A$)
+                    </h2>
+                    <p class="text-[11px] text-gray-400 my-2">
+                        Representación en grafo no directed $G=(V, E)$. El valor indica la cantidad de enlaces entre el nodo $i$ y el nodo $j$.
+                    </p>
+                    <div id="matrix-container" class="overflow-x-auto my-2 p-2 bg-gray-900/90 rounded-xl border border-gray-800 font-mono text-xs text-center">
+                        <!-- Matrix Table inserted dynamically -->
+                    </div>
+                </div>
+
+                <div id="graph-stats" class="text-[11px] font-mono text-gray-400 bg-purple-950/20 border border-purple-500/20 p-2.5 rounded-xl space-y-1">
+                    <div class="flex justify-between">
+                        <span>Vértices (|V|):</span>
+                        <span id="stat-vertices" class="text-purple-300 font-bold">0</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Aristas (|E|):</span>
+                        <span id="stat-edges" class="text-purple-300 font-bold">0</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Orden del Grafo:</span>
+                        <span id="stat-order" class="text-purple-300 font-bold">0</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-gray-800/80 glass-panel py-3 px-4 text-center text-xs text-gray-500">
+        Visor Cuántico e Interactivo de Moléculas • Desarrollado con Canvas HTML5, SVG y Física en tiempo real.
+    </footer>
+
+    <script>
+        const compoundsData = [
+            {
+                id: 'dopamine',
+                name: 'Dopamina',
+                formula: 'C₈H₁₁NO₂',
+                category: 'Placer y Recompensa',
+                type: 'Catecolamina / Neurotransmisor',
+                mass: '153.18 g/mol',
+                geometry: 'Anillo Catecol + Cadena Etilamina',
+                desc: 'Regula la motivación, el deseo y la sensación de logro al alcanzar metas.\n\n💡 Cómo estimularla:\n• Celebrar pequeños logros cotidianos.\n• Hacer ejercicio físico de forma regular.\n• Dormir de 7 a 9 horas diarias.',
+                nodes: [
+                    { id: 0, label: 'C', name: 'C1', x: 180, y: 160, color: '#6b7280', radius: 24 },
+                    { id: 1, label: 'C', name: 'C2', x: 230, y: 120, color: '#6b7280', radius: 24 },
+                    { id: 2, label: 'C', name: 'C3', x: 290, y: 120, color: '#6b7280', radius: 24 },
+                    { id: 3, label: 'C', name: 'C4', x: 320, y: 160, color: '#6b7280', radius: 24 },
+                    { id: 4, label: 'C', name: 'C5', x: 290, y: 200, color: '#6b7280', radius: 24 },
+                    { id: 5, label: 'C', name: 'C6', x: 230, y: 200, color: '#6b7280', radius: 24 },
+                    { id: 6, label: 'OH', name: 'Hidroxilo 1', x: 350, y: 70, color: '#ef4444', radius: 22 },
+                    { id: 7, label: 'OH', name: 'Hidroxilo 2', x: 390, y: 160, color: '#ef4444', radius: 22 },
+                    { id: 8, label: 'C', name: 'CH2', x: 120, y: 160, color: '#6b7280', radius: 22 },
+                    { id: 9, label: 'C', name: 'CH2', x: 70, y: 210, color: '#6b7280', radius: 22 },
+                    { id: 10, label: 'NH₂', name: 'Amina', x: 30, y: 150, color: '#3b82f6', radius: 22 }
+                ],
+                edges: [
+                    { from: 0, to: 1, order: 2 },
+                    { from: 1, to: 2, order: 1 },
+                    { from: 2, to: 3, order: 2 },
+                    { from: 3, to: 4, order: 1 },
+                    { from: 4, to: 5, order: 2 },
+                    { from: 5, to: 0, order: 1 },
+                    { from: 2, to: 6, order: 1 },
+                    { from: 3, to: 7, order: 1 },
+                    { from: 0, to: 8, order: 1 },
+                    { from: 8, to: 9, order: 1 },
+                    { from: 9, to: 10, order: 1 }
+                ]
+            },
+            {
+                id: 'oxytocin',
+                name: 'Oxitocina',
+                formula: 'C₄₃H₆₆N₁₂O₁₂S₂',
+                category: 'Vínculos y Confianza',
+                type: 'Nonapéptido Cíclico',
+                mass: '1007.19 g/mol',
+                geometry: 'Anillo Peptídico + Puente Disulfuro',
+                desc: 'Fomenta la empatía, la creación de lazos afectivos y la reducción del estrés.\n\n💡 Cómo estimularla:\n• Dar y recibir abrazos o muestras de afecto.\n• Practicar la generosidad y meditar.\n• Acariciar a mascotas.',
+                nodes: [
+                    { id: 0, label: 'Cys', name: 'Cisteína 1', x: 150, y: 100, color: '#eab308', radius: 24 },
+                    { id: 1, label: 'Tyr', name: 'Tirosina 2', x: 230, y: 80, color: '#3b82f6', radius: 24 },
+                    { id: 2, label: 'Ile', name: 'Isoleucina 3', x: 300, y: 120, color: '#8b5cf6', radius: 24 },
+                    { id: 3, label: 'Gln', name: 'Glutamina 4', x: 300, y: 190, color: '#ec4899', radius: 24 },
+                    { id: 4, label: 'Asn', name: 'Asparagina 5', x: 230, y: 230, color: '#10b981', radius: 24 },
+                    { id: 5, label: 'Cys', name: 'Cisteína 6', x: 150, y: 210, color: '#eab308', radius: 24 },
+                    { id: 6, label: 'S-S', name: 'Puente Disulfuro', x: 90, y: 155, color: '#f59e0b', radius: 22 },
+                    { id: 7, label: 'Pro', name: 'Prolina 7', x: 80, y: 250, color: '#6366f1', radius: 22 },
+                    { id: 8, label: 'Leu', name: 'Leucina 8', x: 130, y: 295, color: '#06b6d4', radius: 22 },
+                    { id: 9, label: 'Gly', name: 'Glicina 9', x: 210, y: 295, color: '#14b8a6', radius: 22 },
+                    { id: 10, label: 'NH₂', name: 'Amida', x: 280, y: 295, color: '#a855f7', radius: 20 }
+                ],
+                edges: [
+                    { from: 0, to: 1, order: 1 },
+                    { from: 1, to: 2, order: 1 },
+                    { from: 2, to: 3, order: 1 },
+                    { from: 3, to: 4, order: 1 },
+                    { from: 4, to: 5, order: 1 },
+                    { from: 0, to: 6, order: 1 },
+                    { from: 6, to: 5, order: 1 },
+                    { from: 5, to: 7, order: 1 },
+                    { from: 7, to: 8, order: 1 },
+                    { from: 8, to: 9, order: 1 },
+                    { from: 9, to: 10, order: 1 }
+                ]
+            },
+            {
+                id: 'serotonin',
+                name: 'Serotonina',
+                formula: 'C₁₀H₁₂N₂O',
+                category: 'Bienestar y Ánimo',
+                type: 'Triptamina / Indol',
+                mass: '176.21 g/mol',
+                geometry: 'Anillo Indólico + Cadena Etilamina',
+                desc: 'Equilibra el estado de ánimo, combate la depresión y regula la autoestima.\n\n💡 Cómo estimularla:\n• Tomar sol y estar en contacto con la naturaleza.\n• Practicar el agradecimiento diario.\n• Consumir alimentos ricos en triptófano (huevos, plátanos, frutos secos).',
+                nodes: [
+                    { id: 0, label: 'C', name: 'C5 (OH)', x: 130, y: 110, color: '#6b7280', radius: 24 },
+                    { id: 1, label: 'C', name: 'C4', x: 190, y: 80, color: '#6b7280', radius: 24 },
+                    { id: 2, label: 'C', name: 'C3a', x: 250, y: 110, color: '#6b7280', radius: 24 },
+                    { id: 3, label: 'C', name: 'C7a', x: 250, y: 180, color: '#6b7280', radius: 24 },
+                    { id: 4, label: 'C', name: 'C7', x: 190, y: 210, color: '#6b7280', radius: 24 },
+                    { id: 5, label: 'C', name: 'C6', x: 130, y: 180, color: '#6b7280', radius: 24 },
+                    { id: 6, label: 'OH', name: '5-Hidroxilo', x: 70, y: 80, color: '#ef4444', radius: 22 },
+                    { id: 7, label: 'N', name: 'N1 (Pirrol)', x: 310, y: 125, color: '#3b82f6', radius: 24 },
+                    { id: 8, label: 'C', name: 'C2', x: 300, y: 195, color: '#6b7280', radius: 24 },
+                    { id: 9, label: 'C', name: 'C3', x: 320, y: 60, color: '#6b7280', radius: 22 },
+                    { id: 10, label: 'C', name: 'CH2', x: 370, y: 100, color: '#6b7280', radius: 22 },
+                    { id: 11, label: 'NH₂', name: 'Amina', x: 370, y: 180, color: '#3b82f6', radius: 22 }
+                ],
+                edges: [
+                    { from: 0, to: 1, order: 2 },
+                    { from: 1, to: 2, order: 1 },
+                    { from: 2, to: 3, order: 2 },
+                    { from: 3, to: 4, order: 1 },
+                    { from: 4, to: 5, order: 2 },
+                    { from: 5, to: 0, order: 1 },
+                    { from: 0, to: 6, order: 1 },
+                    { from: 2, to: 9, order: 1 },
+                    { from: 9, to: 7, order: 1 },
+                    { from: 7, to: 3, order: 1 },
+                    { from: 3, to: 8, order: 1 },
+                    { from: 9, to: 10, order: 1 },
+                    { from: 10, to: 11, order: 1 }
+                ]
+            },
+            {
+                id: 'endorphin',
+                name: 'Endorfinas',
+                formula: 'C₂₇H₃₅N₅O₇',
+                category: 'Alivio y Euforia',
+                type: 'Opioide Endógeno / Pentapéptido',
+                mass: '555.62 g/mol',
+                geometry: 'Núcleo Activo de β-Endorfina',
+                desc: 'Actúan como analgésicos naturales del cuerpo para inhibir el dolor y reducir la tensión.\n\n💡 Cómo estimularla:\n• Reír a carcajadas.\n• Bailar, cantar o escuchar música favorita.\n• Realizar actividades artísticas o pasatiempos (hobbies).',
+                nodes: [
+                    { id: 0, label: 'Tyr', name: 'Tirosina 1', x: 70, y: 160, color: '#ec4899', radius: 26 },
+                    { id: 1, label: 'Gly', name: 'Glicina 2', x: 140, y: 110, color: '#10b981', radius: 24 },
+                    { id: 2, label: 'Gly', name: 'Glicina 3', x: 210, y: 160, color: '#10b981', radius: 24 },
+                    { id: 3, label: 'Phe', name: 'Fenilalanina 4', x: 280, y: 110, color: '#3b82f6', radius: 26 },
+                    { id: 4, label: 'Met/Leu', name: 'Metionina 5', x: 350, y: 160, color: '#a855f7', radius: 26 },
+                    { id: 5, label: 'Ph', name: 'Anillo Fenilo', x: 290, y: 40, color: '#8b5cf6', radius: 22 },
+                    { id: 6, label: 'OH', name: 'Fenol', x: 30, y: 220, color: '#ef4444', radius: 20 }
+                ],
+                edges: [
+                    { from: 0, to: 1, order: 1 },
+                    { from: 1, to: 2, order: 1 },
+                    { from: 2, to: 3, order: 1 },
+                    { from: 3, to: 4, order: 1 },
+                    { from: 3, to: 5, order: 2 },
+                    { from: 0, to: 6, order: 1 }
+                ]
+            },
+            {
+                id: 'h2',
+                name: 'Hidrógeno Molecular',
+                formula: 'H₂',
+                category: 'Diatómica Simple',
+                type: 'Lineal (1 Enlace Simple)',
+                mass: '2.016 g/mol',
+                geometry: 'Lineal (1D)',
+                desc: 'La molécula diatómica más simple del universo. Consiste en dos átomos de hidrógeno compartiendo un único par de electrones mediante un enlace covalente simple.',
+                nodes: [
+                    { id: 0, label: 'H', name: 'Hidrógeno', x: 130, y: 160, color: '#e2e8f0', radius: 22 },
+                    { id: 1, label: 'H', name: 'Hidrógeno', x: 270, y: 160, color: '#e2e8f0', radius: 22 }
+                ],
+                edges: [
+                    { from: 0, to: 1, order: 1 }
+                ]
+            },
+            {
+                id: 'o2',
+                name: 'Oxígeno Molecular',
+                formula: 'O₂',
+                category: 'Diatómica Doble',
+                type: 'Lineal (Enlace Doble)',
+                mass: '31.999 g/mol',
+                geometry: 'Lineal (1D)',
+                desc: 'Molécula diatómica imprescindible para la respiración aeróbica. Los dos átomos de oxígeno están conectados por un enlace doble covalente.',
+                nodes: [
+                    { id: 0, label: 'O', name: 'Oxígeno', x: 130, y: 160, color: '#ef4444', radius: 26 },
+                    { id: 1, label: 'O', name: 'Oxígeno', x: 270, y: 160, color: '#ef4444', radius: 26 }
+                ],
+                edges: [
+                    { from: 0, to: 1, order: 2 }
+                ]
+            },
+            {
+                id: 'n2',
+                name: 'Nitrógeno Molecular',
+                formula: 'N₂',
+                category: 'Diatómica Triple',
+                type: 'Lineal (Enlace Triple)',
+                mass: '28.013 g/mol',
+                geometry: 'Lineal (1D)',
+                desc: 'Componente principal de la atmósfera terrestre (~78%). Su enlace triple muy fuerte le otorga una alta estabilidad e inercia química.',
+                nodes: [
+                    { id: 0, label: 'N', name: 'Nitrógeno', x: 130, y: 160, color: '#3b82f6', radius: 25 },
+                    { id: 1, label: 'N', name: 'Nitrógeno', x: 270, y: 160, color: '#3b82f6', radius: 25 }
+                ],
+                edges: [
+                    { from: 0, to: 1, order: 3 }
+                ]
+            },
+            {
+                id: 'co2',
+                name: 'Dióxido de Carbono',
+                formula: 'CO₂',
+                category: 'Lineal Tríada',
+                type: 'Lineal (Enlaces Dobles)',
+                mass: '44.01 g/mol',
+                geometry: 'Lineal (180°)',
+                desc: 'Gas de efecto invernadero formado por un átomo de carbono central unido a dos átomos de oxígeno laterales mediante enlaces dobles rígidos.',
+                nodes: [
+                    { id: 0, label: 'O', name: 'Oxígeno', x: 70, y: 160, color: '#ef4444', radius: 24 },
+                    { id: 1, label: 'C', name: 'Carbono', x: 200, y: 160, color: '#6b7280', radius: 28 },
+                    { id: 2, label: 'O', name: 'Oxígeno', x: 330, y: 160, color: '#ef4444', radius: 24 }
+                ],
+                edges: [
+                    { from: 0, to: 1, order: 2 },
+                    { from: 1, to: 2, order: 2 }
+                ]
+            },
+            {
+                id: 'h2o',
+                name: 'Agua',
+                formula: 'H₂O',
+                category: 'Angular',
+                type: 'Estructura Angular',
+                mass: '18.015 g/mol',
+                geometry: 'Angular (104.5°)',
+                desc: 'Solvente universal. El oxígeno central sostiene dos hidrógenos formando un ángulo característico debido a los pares libres de electrones.',
+                nodes: [
+                    { id: 0, label: 'O', name: 'Oxígeno', x: 200, y: 100, color: '#ef4444', radius: 28 },
+                    { id: 1, label: 'H', name: 'Hidrógeno', x: 110, y: 210, color: '#e2e8f0', radius: 22 },
+                    { id: 2, label: 'H', name: 'Hidrógeno', x: 290, y: 210, color: '#e2e8f0', radius: 22 }
+                ],
+                edges: [
+                    { from: 0, to: 1, order: 1 },
+                    { from: 0, to: 2, order: 1 }
+                ]
+            },
+            {
+                id: 'nh3',
+                name: 'Amoníaco',
+                formula: 'NH₃',
+                category: 'Estrella / Piramidal',
+                type: 'Trigonal Piramidal',
+                mass: '17.031 g/mol',
+                geometry: 'Piramidal Trigonal',
+                desc: 'Compuesto básico con un átomo central de nitrógeno conectado a tres átomos de hidrógeno distribuidos en abanico.',
+                nodes: [
+                    { id: 0, label: 'N', name: 'Nitrógeno', x: 200, y: 110, color: '#3b82f6', radius: 28 },
+                    { id: 1, label: 'H', name: 'Hidrógeno', x: 90, y: 210, color: '#e2e8f0', radius: 22 },
+                    { id: 2, label: 'H', name: 'Hidrógeno', x: 200, y: 230, color: '#e2e8f0', radius: 22 },
+                    { id: 3, label: 'H', name: 'Hidrógeno', x: 310, y: 210, color: '#e2e8f0', radius: 22 }
+                ],
+                edges: [
+                    { from: 0, to: 1, order: 1 },
+                    { from: 0, to: 2, order: 1 },
+                    { from: 0, to: 3, order: 1 }
+                ]
+            },
+            {
+                id: 'ch4',
+                name: 'Metano',
+                formula: 'CH₄',
+                category: 'Estrella Tetraédrica',
+                type: 'Tetraédrica (Central)',
+                mass: '16.04 g/mol',
+                geometry: 'Tetraédrica (2D Cruz)',
+                desc: 'Hidrocarburo más simple. Un átomo de carbono central conectado a cuatro átomos de hidrógeno en simetría radial.',
+                nodes: [
+                    { id: 0, label: 'C', name: 'Carbono', x: 200, y: 160, color: '#6b7280', radius: 30 },
+                    { id: 1, label: 'H', name: 'Hidrógeno', x: 200, y: 50, color: '#e2e8f0', radius: 22 },
+                    { id: 2, label: 'H', name: 'Hidrógeno', x: 310, y: 160, color: '#e2e8f0', radius: 22 },
+                    { id: 3, label: 'H', name: 'Hidrógeno', x: 200, y: 270, color: '#e2e8f0', radius: 22 },
+                    { id: 4, label: 'H', name: 'Hidrógeno', x: 90, y: 160, color: '#e2e8f0', radius: 22 }
+                ],
+                edges: [
+                    { from: 0, to: 1, order: 1 },
+                    { from: 0, to: 2, order: 1 },
+                    { from: 0, to: 3, order: 1 },
+                    { from: 0, to: 4, order: 1 }
+                ]
+            },
+            {
+                id: 'c2h6',
+                name: 'Etano',
+                formula: 'C₂H₆',
+                category: 'Cadena Orgánica',
+                type: 'Cadena de Carbonos',
+                mass: '30.07 g/mol',
+                geometry: 'Cadena Lineal (Alcano)',
+                desc: 'Ejemplo representativo de cadena de carbonos en química orgánica. Muestra el enlace C-C central y sus hidrógenos.',
+                nodes: [
+                    { id: 0, label: 'C', name: 'Carbono 1', x: 140, y: 160, color: '#6b7280', radius: 26 },
+                    { id: 1, label: 'C', name: 'Carbono 2', x: 260, y: 160, color: '#6b7280', radius: 26 },
+                    { id: 2, label: 'H', name: 'Hidrógeno', x: 80, y: 100, color: '#e2e8f0', radius: 20 },
+                    { id: 3, label: 'H', name: 'Hidrógeno', x: 80, y: 160, color: '#e2e8f0', radius: 20 },
+                    { id: 4, label: 'H', name: 'Hidrógeno', x: 80, y: 220, color: '#e2e8f0', radius: 20 },
+                    { id: 5, label: 'H', name: 'Hidrógeno', x: 320, y: 100, color: '#e2e8f0', radius: 20 },
+                    { id: 6, label: 'H', name: 'Hidrógeno', x: 320, y: 160, color: '#e2e8f0', radius: 20 },
+                    { id: 7, label: 'H', name: 'Hidrógeno', x: 320, y: 220, color: '#e2e8f0', radius: 20 }
+                ],
+                edges: [
+                    { from: 0, to: 1, order: 1 },
+                    { from: 0, to: 2, order: 1 },
+                    { from: 0, to: 3, order: 1 },
+                    { from: 0, to: 4, order: 1 },
+                    { from: 1, to: 5, order: 1 },
+                    { from: 1, to: 6, order: 1 },
+                    { from: 1, to: 7, order: 1 }
+                ]
+            },
+            {
+                id: 'c6h6',
+                name: 'Benceno',
+                formula: 'C₆H₆',
+                category: 'Aromático Anular',
+                type: 'Anillo de Resonancia',
+                mass: '78.11 g/mol',
+                geometry: 'Hexagonal Plana',
+                desc: 'Anillo aromático característico con deslocalización de electrones Pi. Seis carbonos dispuestos en forma hexagonal.',
+                nodes: [
+                    { id: 0, label: 'C', name: 'C1', x: 200, y: 80, color: '#6b7280', radius: 24 },
+                    { id: 1, label: 'C', name: 'C2', x: 270, y: 120, color: '#6b7280', radius: 24 },
+                    { id: 2, label: 'C', name: 'C3', x: 270, y: 200, color: '#6b7280', radius: 24 },
+                    { id: 3, label: 'C', name: 'C4', x: 200, y: 240, color: '#6b7280', radius: 24 },
+                    { id: 4, label: 'C', name: 'C5', x: 130, y: 200, color: '#6b7280', radius: 24 },
+                    { id: 5, label: 'C', name: 'C6', x: 130, y: 120, color: '#6b7280', radius: 24 }
+                ],
+                edges: [
+                    { from: 0, to: 1, order: 2 },
+                    { from: 1, to: 2, order: 1 },
+                    { from: 2, to: 3, order: 2 },
+                    { from: 3, to: 4, order: 1 },
+                    { from: 4, to: 5, order: 2 },
+                    { from: 5, to: 0, order: 1 }
+                ]
+            },
+            {
+                id: 'feo',
+                name: 'Óxido Ferroso',
+                formula: 'FeO',
+                category: 'Óxido Metálico',
+                type: 'Enlace Iónico / Covalente',
+                mass: '71.84 g/mol',
+                geometry: 'Lineal (Diatómica)',
+                desc: 'Óxido de hierro (II). El hierro actúa con su valencia +2 compartiendo un enlace doble equivalente con el oxígeno.',
+                nodes: [
+                    { id: 0, label: 'Fe', name: 'Hierro (II)', x: 130, y: 160, color: '#f59e0b', radius: 28 },
+                    { id: 1, label: 'O', name: 'Oxígeno', x: 270, y: 160, color: '#ef4444', radius: 25 }
+                ],
+                edges: [
+                    { from: 0, to: 1, order: 2 }
+                ]
+            },
+            {
+                id: 'fe2o3',
+                name: 'Óxido Férrico',
+                formula: 'Fe₂O₃',
+                category: 'Óxido Metálico Complejo',
+                type: 'Red de Óxido',
+                mass: '159.69 g/mol',
+                geometry: 'Estructura Alternante',
+                desc: 'Óxido de hierro (III) o hematita. El hierro actúa con valencia +3. Representación plana de nodos alternados Fe-O-Fe.',
+                nodes: [
+                    { id: 0, label: 'O', name: 'Oxígeno 1', x: 50, y: 160, color: '#ef4444', radius: 22 },
+                    { id: 1, label: 'Fe', name: 'Hierro 1', x: 135, y: 160, color: '#f59e0b', radius: 26 },
+                    { id: 2, label: 'O', name: 'Oxígeno 2', x: 200, y: 90, color: '#ef4444', radius: 22 },
+                    { id: 3, label: 'Fe', name: 'Hierro 2', x: 265, y: 160, color: '#f59e0b', radius: 26 },
+                    { id: 4, label: 'O', name: 'Oxígeno 3', x: 350, y: 160, color: '#ef4444', radius: 22 }
+                ],
+                edges: [
+                    { from: 0, to: 1, order: 2 },
+                    { from: 1, to: 2, order: 1 },
+                    { from: 2, to: 3, order: 1 },
+                    { from: 3, to: 4, order: 2 }
+                ]
+            }
+        ];
+
+        let currentCompound = compoundsData[0]; // Cargar Dopamina por defecto
+        let activeNodes = [];
+        let viewMode = 'chemical'; 
+        let draggedNodeIndex = null;
+        let dragOffset = { x: 0, y: 0 };
+        
+        let isAnimationRunning = true;
+        let motionMode = 'electrons';
+        let animSpeed = 1.0;
+        let vibAmplitude = 3;
+        let globalTime = 0;
+        let canvas, ctx;
+        let particles = [];
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initCanvas();
+            renderCompoundList();
+            loadCompound(currentCompound.id);
+            setupDragAndDrop();
+
+            window.addEventListener('resize', () => {
+                resizeCanvas();
+                updateBondsRendering();
+            });
+
+            requestAnimationFrame(animationLoop);
+        });
+
+        function initCanvas() {
+            canvas = document.getElementById('motion-canvas');
+            ctx = canvas.getContext('2d');
+            resizeCanvas();
+        }
+
+        function resizeCanvas() {
+            const container = document.getElementById('canvas-container');
+            if (canvas && container) {
+                canvas.width = container.clientWidth;
+                canvas.height = container.clientHeight;
+            }
+        }
+
+        function renderCompoundList() {
+            const listEl = document.getElementById('compound-list');
+            document.getElementById('compound-count').innerText = compoundsData.length;
+            listEl.innerHTML = '';
+
+            compoundsData.forEach(comp => {
+                const isSelected = comp.id === currentCompound.id;
+                const btn = document.createElement('button');
+                btn.className = `w-full text-left p-3 rounded-xl transition-all border flex items-center justify-between ${
+                    isSelected 
+                    ? 'bg-emerald-500/10 border-emerald-500/40 text-white shadow-lg' 
+                    : 'bg-gray-900/40 border-gray-800 text-gray-400 hover:bg-gray-800/60 hover:text-gray-200'
+                }`;
+                btn.onclick = () => loadCompound(comp.id);
+
+                btn.innerHTML = `
+                    <div>
+                        <div class="font-bold text-xs flex items-center gap-2">
+                            ${comp.name}
+                        </div>
+                        <div class="text-[10px] text-gray-500 font-mono mt-0.5">${comp.category}</div>
+                    </div>
+                    <span class="font-mono text-sm font-black ${isSelected ? 'text-emerald-400' : 'text-gray-400'}">
+                        ${comp.formula}
+                    </span>
+                `;
+                listEl.appendChild(btn);
+            });
+        }
+
+        function loadCompound(id) {
+            currentCompound = compoundsData.find(c => c.id === id);
+            
+            activeNodes = currentCompound.nodes.map(n => ({
+                ...n,
+                homeX: n.x,
+                homeY: n.y,
+                vx: 0,
+                vy: 0,
+                vibOffsetX: 0,
+                vibOffsetY: 0
+            }));
+
+            initParticles();
+
+            document.getElementById('current-title').innerText = currentCompound.name;
+            document.getElementById('current-formula').innerText = currentCompound.formula;
+            document.getElementById('current-type').innerText = currentCompound.type;
+            document.getElementById('current-description').innerText = currentCompound.desc;
+            document.getElementById('current-mass').innerText = currentCompound.mass;
+            document.getElementById('current-geometry').innerText = currentCompound.geometry;
+
+            renderCompoundList();
+            renderCanvas();
+            renderAdjacencyMatrix();
+        }
+
+        function initParticles() {
+            particles = [];
+            currentCompound.edges.forEach((edge, idx) => {
+                const count = (edge.order || 1) * 3;
+                for (let i = 0; i < count; i++) {
+                    particles.push({
+                        edgeIndex: idx,
+                        progress: Math.random(),
+                        speed: (0.005 + Math.random() * 0.008),
+                        direction: i % 2 === 0 ? 1 : -1,
+                        size: 2.5 + Math.random() * 1.5,
+                        hue: edge.order === 1 ? 160 : (edge.order === 2 ? 210 : 280)
+                    });
+                }
+            });
+        }
+
+        function renderCanvas() {
+            const htmlContainer = document.getElementById('html-atoms');
+            htmlContainer.innerHTML = '';
+
+            activeNodes.forEach((node, index) => {
+                const div = document.createElement('div');
+                div.id = `node-${index}`;
+                div.className = 'atom-node absolute rounded-full flex flex-col items-center justify-center font-bold shadow-2xl border-2 transition-colors duration-200';
+                
+                const radius = node.radius || 24;
+                div.style.width = `${radius * 2}px`;
+                div.style.height = `${radius * 2}px`;
+                div.style.left = `${node.x - radius}px`;
+                div.style.top = `${node.y - radius}px`;
+
+                if (viewMode === 'chemical') {
+                    div.style.backgroundColor = node.color;
+                    div.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+                    div.style.color = (node.label === 'H' || node.label === 'Fe') ? '#0f172a' : '#ffffff';
+                    
+                    div.innerHTML = `
+                        <span class="text-sm font-mono tracking-tighter pointer-events-none">${node.label}</span>
+                        <span class="text-[8px] font-normal opacity-80 -mt-1 pointer-events-none">${node.name}</span>
+                    `;
+                } else {
+                    div.style.backgroundColor = '#68d391';
+                    div.style.borderColor = '#22c55e';
+                    div.style.color = '#0b0f17';
+                    
+                    div.innerHTML = `
+                        <span class="text-xs font-mono font-black pointer-events-none">v${index}</span>
+                        <span class="text-[8px] font-mono opacity-80 -mt-1 pointer-events-none">${node.label}</span>
+                    `;
+                }
+
+                div.setAttribute('data-index', index);
+                htmlContainer.appendChild(div);
+            });
+
+            updateBondsRendering();
+        }
+
+        function updateBondsRendering() {
+            const svgEl = document.getElementById('svg-bonds');
+            svgEl.innerHTML = '';
+
+            currentCompound.edges.forEach(edge => {
+                const n1 = activeNodes[edge.from];
+                const n2 = activeNodes[edge.to];
+
+                if (!n1 || !n2) return;
+
+                const posX1 = n1.x + n1.vibOffsetX;
+                const posY1 = n1.y + n1.vibOffsetY;
+                const posX2 = n2.x + n2.vibOffsetX;
+                const posY2 = n2.y + n2.vibOffsetY;
+
+                const dx = posX2 - posX1;
+                const dy = posY2 - posY1;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist === 0) return;
+
+                const px = -dy / dist;
+                const py = dx / dist;
+
+                const order = edge.order || 1;
+                const strokeColor = viewMode === 'chemical' 
+                    ? (order === 1 ? '#10b981' : (order === 2 ? '#3b82f6' : '#a855f7'))
+                    : '#8b5cf6';
+
+                if (order === 1) {
+                    createSvgLine(svgEl, posX1, posY1, posX2, posY2, strokeColor, 3);
+                } else if (order === 2) {
+                    const offset = 4;
+                    createSvgLine(svgEl, posX1 + px * offset, posY1 + py * offset, posX2 + px * offset, posY2 + py * offset, strokeColor, 2.5);
+                    createSvgLine(svgEl, posX1 - px * offset, posY1 - py * offset, posX2 - px * offset, posY2 - py * offset, strokeColor, 2.5);
+                } else if (order === 3) {
+                    const offset = 6;
+                    createSvgLine(svgEl, posX1, posY1, posX2, posY2, strokeColor, 2);
+                    createSvgLine(svgEl, posX1 + px * offset, posY1 + py * offset, posX2 + px * offset, posY2 + py * offset, strokeColor, 2);
+                    createSvgLine(svgEl, posX1 - px * offset, posY1 - py * offset, posX2 - px * offset, posY2 - py * offset, strokeColor, 2);
+                }
+            });
+        }
+
+        function createSvgLine(svg, x1, y1, x2, y2, color, strokeWidth) {
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('x1', x1);
+            line.setAttribute('y1', y1);
+            line.setAttribute('x2', x2);
+            line.setAttribute('y2', y2);
+            line.setAttribute('stroke', color);
+            line.setAttribute('stroke-width', strokeWidth);
+            line.setAttribute('stroke-linecap', 'round');
+            line.setAttribute('class', 'bond-line opacity-80');
+            svg.appendChild(line);
+        }
+
+        function renderAdjacencyMatrix() {
+            const matrixContainer = document.getElementById('matrix-container');
+            const numNodes = activeNodes.length;
+
+            const matrix = Array.from({ length: numNodes }, () => Array(numNodes).fill(0));
+
+            currentCompound.edges.forEach(edge => {
+                matrix[edge.from][edge.to] = edge.order || 1;
+                matrix[edge.to][edge.from] = edge.order || 1;
+            });
+
+            let tableHTML = '<table class="w-full border-collapse"><thead><tr><th class="p-1 text-gray-500"></th>';
+            for (let i = 0; i < numNodes; i++) {
+                tableHTML += `<th class="p-1 text-purple-400 font-bold">v${i}</th>`;
+            }
+            tableHTML += '</tr></thead><tbody>';
+
+            for (let i = 0; i < numNodes; i++) {
+                tableHTML += `<tr><td class="p-1 text-purple-400 font-bold">${viewMode === 'graph' ? 'v' + i : activeNodes[i].label}</td>`;
+                for (let j = 0; j < numNodes; j++) {
+                    const val = matrix[i][j];
+                    const cellBg = val > 0 ? 'bg-purple-500/20 text-purple-200 font-bold' : 'text-gray-600';
+                    tableHTML += `<td class="p-1 border border-gray-800 ${cellBg}">${val}</td>`;
+                }
+                tableHTML += '</tr>';
+            }
+            tableHTML += '</tbody></table>';
+            matrixContainer.innerHTML = tableHTML;
+
+            document.getElementById('stat-vertices').innerText = numNodes;
+            document.getElementById('stat-edges').innerText = currentCompound.edges.length;
+            document.getElementById('stat-order').innerText = `${numNodes} Vértices`;
+        }
+
+        function setViewMode(mode) {
+            viewMode = mode;
+            const btnChem = document.getElementById('btn-view-chem');
+            const btnGraph = document.getElementById('btn-view-graph');
+
+            if (mode === 'chemical') {
+                btnChem.className = "px-3 py-1.5 rounded-md text-xs font-medium transition-all bg-emerald-600 text-white shadow-sm flex items-center gap-1.5";
+                btnGraph.className = "px-3 py-1.5 rounded-md text-xs font-medium transition-all text-gray-400 hover:text-white flex items-center gap-1.5";
+            } else {
+                btnGraph.className = "px-3 py-1.5 rounded-md text-xs font-medium transition-all bg-purple-600 text-white shadow-sm flex items-center gap-1.5";
+                btnChem.className = "px-3 py-1.5 rounded-md text-xs font-medium transition-all text-gray-400 hover:text-white flex items-center gap-1.5";
+            }
+
+            renderCanvas();
+            renderAdjacencyMatrix();
+        }
+
+        function setupDragAndDrop() {
+            const container = document.getElementById('html-atoms');
+
+            container.addEventListener('pointerdown', (e) => {
+                const target = e.target.closest('.atom-node');
+                if (!target) return;
+
+                draggedNodeIndex = parseInt(target.getAttribute('data-index'), 10);
+                const node = activeNodes[draggedNodeIndex];
+                
+                dragOffset.x = e.clientX - node.x;
+                dragOffset.y = e.clientY - node.y;
+
+                target.setPointerCapture(e.pointerId);
+            });
+
+            container.addEventListener('pointermove', (e) => {
+                if (draggedNodeIndex === null) return;
+
+                const node = activeNodes[draggedNodeIndex];
+                node.x = e.clientX - dragOffset.x;
+                node.y = e.clientY - dragOffset.y;
+                
+                node.homeX = node.x;
+                node.homeY = node.y;
+
+                updateNodeDOMPosition(draggedNodeIndex);
+                updateBondsRendering();
+            });
+
+            const endDrag = (e) => {
+                if (draggedNodeIndex !== null) {
+                    draggedNodeIndex = null;
+                }
+            };
+
+            container.addEventListener('pointerup', endDrag);
+            container.addEventListener('pointercancel', endDrag);
+        }
+
+        function updateNodeDOMPosition(index) {
+            const node = activeNodes[index];
+            const div = document.getElementById(`node-${index}`);
+            if (div) {
+                const radius = node.radius || 24;
+                const finalX = node.x + node.vibOffsetX;
+                const finalY = node.y + node.vibOffsetY;
+                div.style.left = `${finalX - radius}px`;
+                div.style.top = `${finalY - radius}px`;
+            }
+        }
+
+        function resetAtomPositions() {
+            activeNodes.forEach((node, i) => {
+                node.x = currentCompound.nodes[i].x;
+                node.y = currentCompound.nodes[i].y;
+                node.homeX = node.x;
+                node.homeY = node.y;
+                node.vx = 0;
+                node.vy = 0;
+                updateNodeDOMPosition(i);
+            });
+            updateBondsRendering();
+        }
+
+        function setMotionMode(mode) {
+            motionMode = mode;
+        }
+
+        function toggleAnimation() {
+            isAnimationRunning = !isAnimationRunning;
+            const btn = document.getElementById('btn-toggle-anim');
+            btn.innerText = isAnimationRunning ? 'Pausar Movimiento' : 'Reanudar Movimiento';
+            btn.className = isAnimationRunning 
+                ? 'px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' 
+                : 'px-2.5 py-1 rounded-md text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30';
+        }
+
+        function updateSpeed(val) {
+            animSpeed = parseFloat(val);
+        }
+
+        function updateVibration(val) {
+            vibAmplitude = parseFloat(val);
+        }
+
+        function animationLoop(timestamp) {
+            if (isAnimationRunning) {
+                globalTime += 0.02 * animSpeed;
+
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                if (vibAmplitude > 0 && (motionMode === 'vibration' || motionMode === 'all')) {
+                    activeNodes.forEach((node, idx) => {
+                        node.vibOffsetX = Math.sin(globalTime * 3 + idx * 1.5) * vibAmplitude;
+                        node.vibOffsetY = Math.cos(globalTime * 2.5 + idx * 2.1) * vibAmplitude;
+                        updateNodeDOMPosition(idx);
+                    });
+                    updateBondsRendering();
+                } else {
+                    activeNodes.forEach((node, idx) => {
+                        if (node.vibOffsetX !== 0 || node.vibOffsetY !== 0) {
+                            node.vibOffsetX = 0;
+                            node.vibOffsetY = 0;
+                            updateNodeDOMPosition(idx);
+                        }
+                    });
+                }
+
+                if (motionMode === 'electrons' || motionMode === 'all') {
+                    renderElectronFlow();
+                }
+
+                if (motionMode === 'quantum' || motionMode === 'all') {
+                    renderQuantumOrbitals();
+                }
+            }
+
+            requestAnimationFrame(animationLoop);
+        }
+
+        function renderElectronFlow() {
+            particles.forEach(p => {
+                const edge = currentCompound.edges[p.edgeIndex];
+                if (!edge) return;
+
+                const n1 = activeNodes[edge.from];
+                const n2 = activeNodes[edge.to];
+                if (!n1 || !n2) return;
+
+                p.progress += p.speed * p.direction * animSpeed;
+                if (p.progress > 1) p.progress = 0;
+                if (p.progress < 0) p.progress = 1;
+
+                const posX1 = n1.x + n1.vibOffsetX;
+                const posY1 = n1.y + n1.vibOffsetY;
+                const posX2 = n2.x + n2.vibOffsetX;
+                const posY2 = n2.y + n2.vibOffsetY;
+
+                const px = posX1 + (posX2 - posX1) * p.progress;
+                const py = posY1 + (posY2 - posY1) * p.progress;
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(px, py, p.size, 0, Math.PI * 2);
+                ctx.fillStyle = `hsl(${p.hue}, 100%, 70%)`;
+                ctx.shadowColor = `hsl(${p.hue}, 100%, 50%)`;
+                ctx.shadowBlur = 10;
+                ctx.fill();
+                ctx.restore();
+            });
+        }
+
+        function renderQuantumOrbitals() {
+            activeNodes.forEach((node, idx) => {
+                const cx = node.x + node.vibOffsetX;
+                const cy = node.y + node.vibOffsetY;
+                const radius = (node.radius || 24) + 12;
+
+                for (let ring = 0; ring < 2; ring++) {
+                    const angleOffset = (ring * Math.PI / 2) + globalTime * (ring === 0 ? 1 : -1);
+                    
+                    ctx.save();
+                    ctx.translate(cx, cy);
+                    ctx.rotate(angleOffset);
+
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, radius, radius * 0.35, 0, 0, Math.PI * 2);
+                    ctx.strokeStyle = ring === 0 ? 'rgba(34, 197, 94, 0.35)' : 'rgba(168, 85, 247, 0.35)';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+
+                    const eAngle = globalTime * 2.5 + ring * Math.PI;
+                    const ex = Math.cos(eAngle) * radius;
+                    const ey = Math.sin(eAngle) * (radius * 0.35);
+
+                    ctx.beginPath();
+                    ctx.arc(ex, ey, 3, 0, Math.PI * 2);
+                    ctx.fillStyle = ring === 0 ? '#4ade80' : '#c084fc';
+                    ctx.shadowColor = ring === 0 ? '#22c55e' : '#a855f7';
+                    ctx.shadowBlur = 8;
+                    ctx.fill();
+
+                    ctx.restore();
+                }
+            });
+        }
+    </script>
+</body>
+</html>
